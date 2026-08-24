@@ -254,13 +254,13 @@
     <div id="tab-stats" class="tab-content">
         <div class="card">
             <h2>4. Thống Kê & Bảng Xếp Hạng</h2>
-            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 12px;">
-                <label style="line-height: 35px;"><b>Lọc Thời Gian:</b></label>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 12px; align-items: center;">
+                <label><b>Lọc Thời Gian:</b></label>
                 <select id="timeFilter" onchange="renderStatsTable()">
-                    <option value="all">Tất cả thời gian</option>
+                    <option value="month" selected>Tháng này (Reset Sao Hàng Tháng)</option>
                     <option value="week">Tuần này</option>
-                    <option value="month" selected>Tháng này</option>
                     <option value="year">Năm này</option>
+                    <option value="all">Tất cả thời gian</option>
                 </select>
             </div>
 
@@ -275,7 +275,7 @@
                             <th>Tỷ Lệ Thắng</th>
                             <th>⚽ Bàn Thắng (G)</th>
                             <th>👟 Kiến Tạo (A)</th>
-                            <th>⭐ Số Trận Thắng</th>
+                            <th>⭐ Sao (Thắng)</th>
                         </tr>
                     </thead>
                     <tbody id="statsTable"></tbody>
@@ -516,7 +516,7 @@
         refreshActiveTab();
     }
 
-    // --- TAB QUẢN LÝ CẦU THỦ (ĐÃ BỎ CỘT SKILL) ---
+    // --- TAB QUẢN LÝ CẦU THỦ ---
     function renderPlayerManager() {
         const tbody = document.getElementById('playerManagerTable');
         tbody.innerHTML = '';
@@ -544,7 +544,6 @@
         const pos = document.getElementById('pPos').value;
         if (!name) return alert('Nhập tên cầu thủ!');
         
-        // Mặc định gán skill là 3 ngầm bên dưới để phục vụ thuật toán chia đội nếu cần
         players.push({ id: Date.now(), name, pos, skill: 3, matches: 0, wins: 0, goals: 0, assists: 0 });
         document.getElementById('pName').value = '';
         saveData();
@@ -576,7 +575,7 @@
         alert(`Đã xóa cầu thủ ${nameStr} thành công!`);
     }
 
-    // --- CÁC HÀM XỬ LÝ TRẬN ĐẤU, QUỸ, THỐNG KÊ ---
+    // --- TRẬN ĐẤU & CẬP NHẬT SAO THẮNG TRẬN ---
     function renderMatchChecklist() {
         const tbody = document.getElementById('matchChecklistTable');
         tbody.innerHTML = '';
@@ -752,14 +751,14 @@
             return alert('Cần phân chia ít nhất 1 cầu thủ vào mỗi đội!');
         }
 
-        if (confirm(`Xác nhận chốt kết quả và đồng bộ dữ liệu trực tuyến?`)) {
+        if (confirm(`Xác nhận chốt kết quả và cộng 1 ⭐ cho mỗi cầu thủ đội thắng?`)) {
             const now = new Date().toISOString();
 
             team1List.forEach(p => {
                 p.matches = (p.matches || 0) + 1;
                 if (score1 > score2) {
                     p.wins = (p.wins || 0) + 1;
-                    starHistory.push({ playerId: p.id, date: now });
+                    starHistory.push({ playerId: p.id, date: now }); // Lưu mốc thời gian nhận sao
                 }
             });
 
@@ -767,7 +766,7 @@
                 p.matches = (p.matches || 0) + 1;
                 if (score2 > score1) {
                     p.wins = (p.wins || 0) + 1;
-                    starHistory.push({ playerId: p.id, date: now });
+                    starHistory.push({ playerId: p.id, date: now }); // Lưu mốc thời gian nhận sao
                 }
             });
 
@@ -782,26 +781,33 @@
             });
 
             saveData();
-            alert('Đã cập nhật dữ liệu thành công!');
+            alert('🎉 Đã chốt kết quả trận đấu và cộng Sao thắng trận thành công!');
             currentMatchGoals = [];
             renderGoalsList();
         }
     }
 
+    // --- HÀM TÍNH SAO THEO BỘ LỌC THỜI GIAN ---
     function getStarsCount(playerId, timeFrame) {
         const now = new Date();
         return starHistory.filter(h => {
             if (h.playerId !== playerId) return false;
             const hDate = new Date(h.date);
-            if (timeFrame === 'week') {
-                const firstDayOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+            
+            if (timeFrame === 'month') {
+                // Chỉ lấy sao của đúng Tháng và Năm hiện tại (Làm mới đầu mỗi tháng)
+                return hDate.getMonth() === now.getMonth() && hDate.getFullYear() === now.getFullYear();
+            } else if (timeFrame === 'week') {
+                // Lấy sao trong tuần này
+                const firstDayOfWeek = new Date(now);
+                firstDayOfWeek.setDate(now.getDate() - now.getDay());
+                firstDayOfWeek.setHours(0,0,0,0);
                 return hDate >= firstDayOfWeek;
-            } else if (timeFrame === 'month') {
-                return hDate.getMonth() === new Date().getMonth() && hDate.getFullYear() === new Date().getFullYear();
             } else if (timeFrame === 'year') {
-                return hDate.getFullYear() === new Date().getFullYear();
+                // Lấy sao trong năm này
+                return hDate.getFullYear() === now.getFullYear();
             }
-            return true;
+            return true; // tất cả thời gian
         }).length;
     }
 
@@ -816,6 +822,7 @@
             return { ...p, stars, winRate };
         });
 
+        // Xếp hạng ưu tiên theo số Sao trong khoảng thời gian được lọc
         list.sort((a,b) => b.stars - a.stars || b.goals - a.goals || b.winRate - a.winRate);
 
         list.forEach((p, idx) => {
@@ -834,6 +841,7 @@
         });
     }
 
+    // --- QUẢN LÝ QUỸ ---
     function payMonthlyAll() {
         const monthVal = document.getElementById('fundMonthSelect').value;
         const amount = parseInt(document.getElementById('monthlyAmountInput').value) || 0;
