@@ -607,19 +607,64 @@
         alert("🎉 Đã đổi mật khẩu Admin thành công!");
     }
 
+    // TÍNH TOÁN DỮ LIỆU ĐỘNG TỪ MATCH_RECORDS
+    function calculatePlayerStats(playerId, filter = 'all') {
+        let played = 0, absent = 0, wins = 0, goals = 0, assists = 0;
+        const now = new Date();
+
+        matchRecords.forEach(m => {
+            if (!m.date) return;
+            const mDate = new Date(m.date);
+
+            // Filter theo thời gian
+            if (filter === 'month') {
+                if (mDate.getMonth() !== now.getMonth() || mDate.getFullYear() !== now.getFullYear()) return;
+            } else if (filter === 'year') {
+                if (mDate.getFullYear() !== now.getFullYear()) return;
+            }
+
+            const team1 = m.team1Players || [];
+            const team2 = m.team2Players || [];
+            const absents = m.absentPlayers || [];
+
+            const isTeam1 = team1.includes(playerId);
+            const isTeam2 = team2.includes(playerId);
+            const isAbsent = absents.includes(playerId);
+
+            if (isTeam1 || isTeam2) {
+                played++;
+                if (isTeam1 && m.score1 > m.score2) wins++;
+                if (isTeam2 && m.score2 > m.score1) wins++;
+            } else if (isAbsent) {
+                absent++;
+            }
+
+            // Bàn thắng & Kiến tạo
+            if (m.goals && Array.isArray(m.goals)) {
+                m.goals.forEach(g => {
+                    if (g.scorerId === playerId) goals++;
+                    if (g.assistId === playerId) assists++;
+                });
+            }
+        });
+
+        return { played, absent, wins, goals, assists };
+    }
+
     // CẦU THỦ
     function renderPlayerManager() {
         const tbody = document.getElementById('playerManagerTable');
         tbody.innerHTML = '';
         players.forEach((p, index) => {
+            const stats = calculatePlayerStats(p.id, 'all');
             tbody.innerHTML += `
                 <tr>
                     <td><b>${index + 1}</b></td>
                     <td><b>${p.name}</b></td>
                     <td style="color:#aaa;"><i>${p.alias || '-'}</i></td>
                     <td><span class="tag tag-${p.pos.toLowerCase()}">${p.pos}</span></td>
-                    <td>⚽ <b>${p.goals || 0}</b></td>
-                    <td>👟 <b>${p.assists || 0}</b></td>
+                    <td>⚽ <b>${stats.goals}</b></td>
+                    <td>👟 <b>${stats.assists}</b></td>
                     <td class="admin-only">
                         <button class="btn-orange btn-sm" onclick="editPlayer(${p.id})">✏️ Sửa</button>
                         <button class="btn-danger btn-sm" onclick="deletePlayer(${p.id})">❌ Xóa</button>
@@ -636,7 +681,7 @@
         const pos = document.getElementById('pPos').value;
         if (!name) return alert('Vui lòng nhập tên cầu thủ!');
         
-        players.push({ id: Date.now(), name, alias, pos, skill: 3, matches: 0, absences: 0, wins: 0, goals: 0, assists: 0 });
+        players.push({ id: Date.now(), name, alias, pos, skill: 3 });
         document.getElementById('pName').value = '';
         document.getElementById('pAlias').value = '';
         saveData();
@@ -836,20 +881,22 @@
         const name1 = document.getElementById('nameTeam1').value || 'Đội 1';
         const name2 = document.getElementById('nameTeam2').value || 'Đội 2';
 
-        const team1List = players.filter(p => matchAssignments[p.id] === 1);
-        const team2List = players.filter(p => matchAssignments[p.id] === 2);
-        const absentList = players.filter(p => matchAssignments[p.id] === -1);
+        const team1Ids = players.filter(p => matchAssignments[p.id] === 1).map(p => p.id);
+        const team2Ids = players.filter(p => matchAssignments[p.id] === 2).map(p => p.id);
+        const absentIds = players.filter(p => matchAssignments[p.id] === -1).map(p => p.id);
 
-        if (team1List.length === 0 || team2List.length === 0) {
+        if (team1Ids.length === 0 || team2Ids.length === 0) {
             return alert('⚠️ Cần chọn cầu thủ và phân Đội 1 & Đội 2 trước khi chốt kết quả!');
         }
+
+        const matchId = Date.now();
 
         const isConfirmed = confirm(
             `XÁC NHẬN CHỐT KẾT QUẢ & LƯU TRẬN ĐẤU?\n\n` +
             `⚔️ Trận: ${name1} [ ${score1} - ${score2} ] ${name2}\n` +
             `📅 Ngày: ${matchDateVal} (${matchTimeVal})\n` +
             `📍 Sân: ${matchLocVal || 'Chưa ghi'}\n` +
-            `❌ Số cầu thủ vắng: ${absentList.length}\n` +
+            `❌ Số cầu thủ vắng: ${absentIds.length}\n` +
             `⚽ Tổng số bàn diễn biến: ${currentMatchGoals.length}`
         );
 
@@ -858,39 +905,15 @@
         const dateObj = matchDateVal ? new Date(matchDateVal) : new Date();
         const matchTimestamp = dateObj.toISOString();
 
-        team1List.forEach(p => {
-            p.matches = (p.matches || 0) + 1;
-            if (score1 > score2) {
-                p.wins = (p.wins || 0) + 1;
-                starHistory.push({ playerId: p.id, date: matchTimestamp, location: matchLocVal, time: matchTimeVal });
-            }
-        });
-
-        team2List.forEach(p => {
-            p.matches = (p.matches || 0) + 1;
-            if (score2 > score1) {
-                p.wins = (p.wins || 0) + 1;
-                starHistory.push({ playerId: p.id, date: matchTimestamp, location: matchLocVal, time: matchTimeVal });
-            }
-        });
-
-        // Ghi nhận vắng mặt cho các cầu thủ chọn vắng
-        absentList.forEach(p => {
-            p.absences = (p.absences || 0) + 1;
-        });
-
-        currentMatchGoals.forEach(g => {
-            const scorer = players.find(p => p.id === g.scorerId);
-            if (scorer) scorer.goals = (scorer.goals || 0) + 1;
-
-            if (g.assistId) {
-                const assist = players.find(p => p.id === g.assistId);
-                if (assist) assist.assists = (assist.assists || 0) + 1;
-            }
-        });
+        // Ghi nhận sao chiến thắng
+        if (score1 > score2) {
+            team1Ids.forEach(pId => starHistory.push({ matchId, playerId: pId, date: matchTimestamp }));
+        } else if (score2 > score1) {
+            team2Ids.forEach(pId => starHistory.push({ matchId, playerId: pId, date: matchTimestamp }));
+        }
 
         matchRecords.push({
-            id: Date.now(),
+            id: matchId,
             date: matchDateVal,
             time: matchTimeVal,
             location: matchLocVal,
@@ -898,6 +921,9 @@
             team2Name: name2,
             score1: score1,
             score2: score2,
+            team1Players: team1Ids,
+            team2Players: team2Ids,
+            absentPlayers: absentIds,
             goals: [...currentMatchGoals],
             status: 'finished'
         });
@@ -934,9 +960,23 @@
 
     function deleteMatchRecord(id) {
         if (!isAdmin) return;
-        if (confirm("Xóa trận đấu này khỏi lịch sử?")) {
+        if (confirm("Xóa trận đấu này khỏi lịch sử? Tất cả thống kê liên quan sẽ tự động cập nhật giảm!")) {
+            const targetMatch = matchRecords.find(m => m.id === id);
+            
+            // Lọc bỏ trận đấu
             matchRecords = matchRecords.filter(m => m.id !== id);
+            
+            // Lọc bỏ sao chiến thắng theo matchId hoặc trùng khớp ngày diễn ra trận đấu
+            starHistory = starHistory.filter(s => {
+                if (s.matchId === id || String(s.matchId) === String(id)) return false;
+                if (targetMatch && s.date && s.date.startsWith(targetMatch.date)) {
+                    return false; 
+                }
+                return true;
+            });
+
             saveData();
+            alert("🗑️ Đã xóa trận đấu và thu hồi sao chiến thắng thành công!");
         }
     }
 
@@ -956,6 +996,32 @@
         }).length;
     }
 
+    // HÀM TĂNG / GIẢM SAO THỦ CÔNG CHO ADMIN[cite: 7]
+    function adjustPlayerStar(playerId, amount) {
+        if (!isAdmin) return;
+        const p = players.find(item => item.id === playerId);
+        if (!p) return;
+
+        if (amount > 0) {
+            starHistory.push({
+                matchId: 'manual_' + Date.now(),
+                playerId: playerId,
+                date: new Date().toISOString()
+            });
+            alert(`⭐ Đã cộng thêm 1 sao cho cầu thủ ${p.name}!`);
+        } else {
+            const index = starHistory.map((h, idx) => ({ ...h, idx })).filter(h => h.playerId === playerId);
+            if (index.length === 0) {
+                return alert(`Cầu thủ ${p.name} không còn sao nào để giảm!`);
+            }
+            const targetIndex = index[index.length - 1].idx;
+            starHistory.splice(targetIndex, 1);
+            alert(`📉 Đã giảm 1 sao của cầu thủ ${p.name}!`);
+        }
+
+        saveData();
+    }
+
     function renderStatsTable() {
         const tbody = document.getElementById('statsTable');
         const filterSelect = document.getElementById('timeFilter');
@@ -963,14 +1029,24 @@
         tbody.innerHTML = '';
 
         let list = players.map(p => {
+            const stats = calculatePlayerStats(p.id, filter);
             const stars = getStarsCount(p.id, filter);
-            const winRate = p.matches > 0 ? Math.round((p.wins / p.matches) * 100) : 0;
-            const played = p.matches || 0;
-            const absent = p.absences || 0;
-            const totalScheduled = played + absent;
-            const attendanceRate = totalScheduled > 0 ? Math.round((played / totalScheduled) * 100) : 0;
+            
+            const winRate = stats.played > 0 ? Math.round((stats.wins / stats.played) * 100) : 0;
+            const totalScheduled = stats.played + stats.absent;
+            const attendanceRate = totalScheduled > 0 ? Math.round((stats.played / totalScheduled) * 100) : 0;
 
-            return { ...p, stars, winRate, played, absent, attendanceRate };
+            return { 
+                ...p, 
+                played: stats.played, 
+                absent: stats.absent, 
+                wins: stats.wins, 
+                goals: stats.goals, 
+                assists: stats.assists, 
+                stars, 
+                winRate, 
+                attendanceRate 
+            };
         });
 
         list.sort((a,b) => b.attendanceRate - a.attendanceRate || b.stars - a.stars || b.goals - a.goals);
@@ -983,11 +1059,17 @@
                     <td><b>${p.played}</b></td>
                     <td style="color: var(--danger);"><b>${p.absent}</b></td>
                     <td style="color: var(--accent-green); font-weight: bold;">${p.attendanceRate}%</td>
-                    <td>${p.wins || 0}</td>
+                    <td>${p.wins}</td>
                     <td style="color: var(--accent-orange); font-weight: bold;">${p.winRate}%</td>
-                    <td>⚽ ${p.goals || 0}</td>
-                    <td>👟 ${p.assists || 0}</td>
-                    <td style="color: var(--accent-orange); font-weight: bold;">${p.stars} ⭐</td>
+                    <td>⚽ ${p.goals}</td>
+                    <td>👟 ${p.assists}</td>
+                    <td style="color: var(--accent-orange); font-weight: bold;">
+                        ${p.stars} ⭐
+                        <div class="admin-only" style="display:inline-block; margin-left:6px;">
+                            <button class="btn-sm btn-orange" onclick="adjustPlayerStar(${p.id}, 1)" title="Tăng 1 sao">+</button>
+                            <button class="btn-sm btn-danger" onclick="adjustPlayerStar(${p.id}, -1)" title="Giảm 1 sao">-</button>
+                        </div>
+                    </td>
                 </tr>
             `;
         });
