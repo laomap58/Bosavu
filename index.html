@@ -43,7 +43,7 @@
         .btn-purple { background: var(--accent-purple); color: #fff; }
         .btn-orange { background: var(--accent-orange); color: #000; }
         .btn-danger { background: var(--danger); color: #fff; }
-        .btn-sm { padding: 3px 6px; font-size: 12px; }
+        .btn-sm { padding: 4px 8px; font-size: 12px; }
         
         .auth-bar { display: flex; justify-content: space-between; align-items: center; background: #252525; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); }
         .admin-only { display: none; }
@@ -107,6 +107,7 @@
         <button class="tab-btn" onclick="switchTab('tab-fund')">💰 Quản Lý Quỹ</button>
     </div>
 
+    <!-- TAB TRẬN ĐẤU -->
     <div id="tab-match" class="tab-content active">
         <div class="card">
             <h2>1. Thiết Lập & Chia Đội Trận Đấu</h2>
@@ -214,11 +215,14 @@
         </div>
     </div>
 
+    <!-- TAB QUẢN LÝ CẦU THỦ (ĐÃ ĐƯỢC MỞ NÚT XÓA LUÔN HIỂN THỊ) -->
     <div id="tab-players" class="tab-content">
         <div class="card">
             <h2>3. Danh Sách Cầu Thủ FC Bosavu</h2>
-            <div class="form-group admin-only">
-                <input type="text" id="pName" placeholder="Tên cầu thủ...">
+            
+            <!-- Phần thêm cầu thủ mới cho Admin -->
+            <div class="form-group admin-only" style="margin-bottom: 15px; background: #263238; padding: 10px; border-radius: 8px;">
+                <input type="text" id="pName" placeholder="Tên cầu thủ mới...">
                 <select id="pPos">
                     <option value="GK">GK (Thủ môn)</option>
                     <option value="DF">DF (Hậu vệ)</option>
@@ -244,7 +248,7 @@
                             <th>Skill</th>
                             <th>Bàn Thắng (G)</th>
                             <th>Kiến Tạo (A)</th>
-                            <th class="admin-only">Xóa</th>
+                            <th style="color: var(--danger);">Thao Tác</th>
                         </tr>
                     </thead>
                     <tbody id="playerManagerTable"></tbody>
@@ -253,6 +257,7 @@
         </div>
     </div>
 
+    <!-- TAB THỐNG KÊ -->
     <div id="tab-stats" class="tab-content">
         <div class="card">
             <h2>4. Thống Kê & Bảng Xếp Hạng</h2>
@@ -286,6 +291,7 @@
         </div>
     </div>
 
+    <!-- TAB QUẢN LÝ QUỸ -->
     <div id="tab-fund" class="tab-content">
         <div class="fund-summary">
             <div class="fund-card" style="border-color: var(--accent-blue);">
@@ -395,7 +401,6 @@
         measurementId: "G-VLQKNKJBSC"
     };
 
-    // Khởi tạo Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -436,7 +441,6 @@
     });
 
     function saveData() {
-        // LƯU TRỰC TIẾP LÊN ĐÁM MÂY GOOGLE
         db.ref('fc_bosavu_data').set({
             players: players,
             starHistory: starHistory,
@@ -491,7 +495,71 @@
         refreshActiveTab();
     }
 
-    // --- CÁC HÀM XỬ LÝ TRẬN ĐẤU & QUẢN LÝ ---
+    // --- TAB QUẢN LÝ CẦU THỦ ---
+    function renderPlayerManager() {
+        const tbody = document.getElementById('playerManagerTable');
+        tbody.innerHTML = '';
+        players.forEach(p => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${p.name}</b></td>
+                    <td><span class="tag tag-${p.pos.toLowerCase()}">${p.pos}</span></td>
+                    <td>${p.skill}⭐</td>
+                    <td>⚽ <b>${p.goals || 0}</b></td>
+                    <td>👟 <b>${p.assists || 0}</b></td>
+                    <td>
+                        <button class="btn-danger btn-sm" onclick="deletePlayer(${p.id})">❌ Xóa</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function addPlayer() {
+        if (!isAdmin) {
+            alert("Bạn cần Đăng Nhập Admin (Mật khẩu: 1234) mới được THÊM cầu thủ!");
+            return;
+        }
+        const name = document.getElementById('pName').value.trim();
+        const pos = document.getElementById('pPos').value;
+        const skill = parseInt(document.getElementById('pSkill').value);
+        if (!name) return alert('Nhập tên cầu thủ!');
+        
+        players.push({ id: Date.now(), name, pos, skill, matches: 0, wins: 0, goals: 0, assists: 0 });
+        document.getElementById('pName').value = '';
+        saveData();
+    }
+
+    // --- HÀM XÓA CẦU THỦ BẮT BUỘC NHẬP PASS VÀ XÓA LUÔN TÊN ---
+    function deletePlayer(id) {
+        const targetPlayer = players.find(p => p.id === id);
+        const nameStr = targetPlayer ? targetPlayer.name : 'cầu thủ này';
+
+        // Nếu chưa bấm đăng nhập Admin ở trên, hỏi luôn mật khẩu ở đây
+        if (!isAdmin) {
+            let pass = prompt(`Xác nhận xóa cầu thủ "${nameStr}". Nhập mật khẩu Admin (1234):`);
+            if (pass !== ADMIN_PASS) {
+                if (pass !== null) alert("Mật khẩu Admin không đúng!");
+                return;
+            }
+        } else {
+            if (!confirm(`Bạn có chắc chắn muốn XÓA hẳn cầu thủ "${nameStr}" khỏi danh sách?`)) {
+                return;
+            }
+        }
+
+        // Tiến hành xóa khỏi bộ nhớ và đồng bộ Firebase
+        players = players.filter(p => p.id !== id);
+        starHistory = starHistory.filter(h => h.playerId !== id);
+        penalties = penalties.filter(p => p.playerId !== id);
+        fundHistory = fundHistory.filter(h => h.playerId !== id);
+        delete matchAssignments[id];
+
+        saveData();
+        alert(`Đã xóa cầu thủ ${nameStr} thành công!`);
+    }
+
+    // --- CÁC HÀM XỬ LÝ KHÁC (TRẬN ĐẤU, QUỸ, THỐNG KÊ) ---
     function renderMatchChecklist() {
         const tbody = document.getElementById('matchChecklistTable');
         tbody.innerHTML = '';
@@ -704,58 +772,6 @@
             alert('Đã cập nhật dữ liệu thành công!');
             currentMatchGoals = [];
             renderGoalsList();
-        }
-    }
-
-    function renderPlayerManager() {
-        const tbody = document.getElementById('playerManagerTable');
-        tbody.innerHTML = '';
-        players.forEach(p => {
-            tbody.innerHTML += `
-                <tr>
-                    <td><b>${p.name}</b></td>
-                    <td><span class="tag tag-${p.pos.toLowerCase()}">${p.pos}</span></td>
-                    <td>${p.skill}⭐</td>
-                    <td>⚽ <b>${p.goals || 0}</b></td>
-                    <td>👟 <b>${p.assists || 0}</b></td>
-                    <td class="admin-only"><button class="btn-danger btn-sm" onclick="deletePlayer(${p.id})">Xóa</button></td>
-                </tr>
-            `;
-        });
-    }
-
-    function addPlayer() {
-        if (!isAdmin) return alert("Bạn cần Đăng nhập Admin để thực hiện thao tác này!");
-        const name = document.getElementById('pName').value.trim();
-        const pos = document.getElementById('pPos').value;
-        const skill = parseInt(document.getElementById('pSkill').value);
-        if (!name) return alert('Nhập tên cầu thủ!');
-        
-        players.push({ id: Date.now(), name, pos, skill, matches: 0, wins: 0, goals: 0, assists: 0 });
-        document.getElementById('pName').value = '';
-        saveData();
-    }
-
-    // --- HÀM XÓA CẦU THỦ ĐÃ ĐƯỢC SỬA LỖI & ĐỒNG BỘ ĐÁM MÂY ---
-    function deletePlayer(id) {
-        if (!isAdmin) {
-            alert("Bạn cần bấm '🔑 Đăng Nhập Admin' trước khi xóa!");
-            return;
-        }
-
-        const targetPlayer = players.find(p => p.id === id);
-        const nameStr = targetPlayer ? targetPlayer.name : 'cầu thủ này';
-
-        if (confirm(`Bạn có chắc chắn muốn XÓA ${nameStr} khỏi đội bóng?`)) {
-            // Filter xóa khỏi mảng
-            players = players.filter(p => p.id !== id);
-            starHistory = starHistory.filter(h => h.playerId !== id);
-            penalties = penalties.filter(p => p.playerId !== id);
-            fundHistory = fundHistory.filter(h => h.playerId !== id);
-            delete matchAssignments[id];
-
-            // Lưu lên Firebase và vẽ lại giao diện
-            saveData();
         }
     }
 
