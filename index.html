@@ -442,6 +442,10 @@
             starHistory: starHistory,
             fundHistory: fundHistory,
             penalties: penalties
+        }).then(() => {
+            refreshActiveTab();
+        }).catch(err => {
+            alert("Lỗi khi lưu dữ liệu: " + err.message);
         });
     }
 
@@ -721,19 +725,36 @@
     }
 
     function addPlayer() {
+        if (!isAdmin) return alert("Bạn cần Đăng nhập Admin để thực hiện thao tác này!");
         const name = document.getElementById('pName').value.trim();
         const pos = document.getElementById('pPos').value;
         const skill = parseInt(document.getElementById('pSkill').value);
-        if (!name) return alert('Nhập tên!');
+        if (!name) return alert('Nhập tên cầu thủ!');
+        
         players.push({ id: Date.now(), name, pos, skill, matches: 0, wins: 0, goals: 0, assists: 0 });
         document.getElementById('pName').value = '';
         saveData();
     }
 
+    // --- HÀM XÓA CẦU THỦ ĐÃ ĐƯỢC SỬA LỖI & ĐỒNG BỘ ĐÁM MÂY ---
     function deletePlayer(id) {
-        if (confirm('Xóa cầu thủ này?')) {
+        if (!isAdmin) {
+            alert("Bạn cần bấm '🔑 Đăng Nhập Admin' trước khi xóa!");
+            return;
+        }
+
+        const targetPlayer = players.find(p => p.id === id);
+        const nameStr = targetPlayer ? targetPlayer.name : 'cầu thủ này';
+
+        if (confirm(`Bạn có chắc chắn muốn XÓA ${nameStr} khỏi đội bóng?`)) {
+            // Filter xóa khỏi mảng
             players = players.filter(p => p.id !== id);
             starHistory = starHistory.filter(h => h.playerId !== id);
+            penalties = penalties.filter(p => p.playerId !== id);
+            fundHistory = fundHistory.filter(h => h.playerId !== id);
+            delete matchAssignments[id];
+
+            // Lưu lên Firebase và vẽ lại giao diện
             saveData();
         }
     }
