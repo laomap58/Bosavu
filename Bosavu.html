@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FC BOSAVU - Quản Lý Đội Bóng Pro</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FC BOSAVU">
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root {
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --text: #e0e0e0;
+            --accent-green: #00e676;
+            --accent-blue: #29b6f6;
+            --accent-orange: #ff9100;
+            --accent-purple: #ab47bc;
+            --danger: #ff5252;
+            --border: #333333;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px; background-color: var(--bg); color: var(--text); padding-bottom: 30px; }
+        
+        .app-header { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 15px 0; }
+        .app-logo { width: 55px; height: 55px; object-fit: contain; border-radius: 50%; border: 2px solid var(--accent-orange); background: #fff; }
+        .app-title { margin: 0; color: #fff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+        .app-title span { color: var(--accent-orange); }
+
+        h2, h3 { text-align: center; color: var(--accent-green); margin: 8px 0; }
+        .container { max-width: 950px; margin: 0 auto; }
+        .card { background: var(--card-bg); padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); margin-bottom: 15px; border: 1px solid var(--border); }
+        .form-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+        input, select, button, textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #2a2a2a; color: var(--text); }
+        input[type="text"], input[type="number"] { flex: 2; min-width: 120px; }
+        button { background: var(--accent-green); color: #000; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
+        button:active { opacity: 0.8; }
+        .btn-blue { background: var(--accent-blue); color: #000; }
+        .btn-purple { background: var(--accent-purple); color: #fff; }
+        .btn-orange { background: var(--accent-orange); color: #000; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-sm { padding: 3px 6px; font-size: 12px; }
+        
+        .auth-bar { display: flex; justify-content: space-between; align-items: center; background: #252525; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); }
+        .admin-only { display: none; }
+
+        .nav-tabs { display: flex; gap: 5px; margin-bottom: 15px; overflow-x: auto; background: #1a1a1a; padding: 5px; border-radius: 10px; border: 1px solid var(--border); }
+        .tab-btn { flex: 1; padding: 10px 5px; text-align: center; background: transparent; color: #888; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .tab-btn.active { background: var(--accent-green); color: #000; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { border: 1px solid var(--border); padding: 8px 4px; text-align: center; }
+        th { background-color: #2a2a2a; color: var(--accent-green); }
+        
+        .team-box { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 15px; }
+        .team { flex: 1; min-width: 270px; padding: 12px; border-radius: 8px; border: 2px solid; }
+        .team-cam { background: #2b1d0c; border-color: var(--accent-orange); }
+        .team-trang { background: #222222; border-color: #ffffff; }
+        .team-xanh { background: #0c1d2b; border-color: var(--accent-blue); }
+        .team-tim { background: #210c2b; border-color: var(--accent-purple); }
+        .team ul { list-style: none; padding: 0; margin: 0; }
+        .team li { padding: 6px 0; border-bottom: 1px dashed #444; font-size: 14px; }
+        
+        .tag { font-weight: bold; padding: 2px 5px; border-radius: 4px; font-size: 11px; }
+        .tag-gk { background: #ff6d00; color: #fff; }
+        .tag-df { background: #3d5aff; color: #fff; }
+        .tag-mf { background: #00c853; color: #000; }
+        .tag-fw { background: #ff1744; color: #fff; }
+        
+        textarea { width: 100%; height: 50px; box-sizing: border-box; resize: vertical; }
+        .fund-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+        .fund-card { flex: 1; min-width: 200px; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid var(--border); background: #252525; }
+        .fund-card h4 { margin: 0 0 5px 0; }
+        .fund-val { font-size: 18px; font-weight: bold; }
+        
+        .badge-paid { background: #00c853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .badge-unpaid { background: #ff5252; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .score-input { font-size: 20px; font-weight: bold; width: 60px !important; text-align: center; }
+        .events-list { background: #181818; padding: 10px; border-radius: 6px; margin-top: 10px; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="auth-bar">
+        <span>Quyền: <b id="roleLabel" style="color: var(--accent-green);">MEMBER (Chỉ xem)</b></span>
+        <button id="authBtn" onclick="toggleAuth()">🔑 Đăng Nhập Admin</button>
+    </div>
+
+    <div class="app-header">
+        <img src="logo bsv.jpg" alt="FC Bosavu Logo" class="app-logo" onerror="this.style.display='none'">
+        <h1 class="app-title">FC <span>BOSAVU</span></h1>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-match')">⚽ Trận Đấu</button>
+        <button class="tab-btn" onclick="switchTab('tab-players')">👥 Cầu Thủ</button>
+        <button class="tab-btn" onclick="switchTab('tab-stats')">📊 Thống Kê</button>
+        <button class="tab-btn" onclick="switchTab('tab-fund')">💰 Quản Lý Quỹ</button>
+    </div>
+
+    <div id="tab-match" class="tab-content active">
+        <div class="card">
+            <h2>1. Thiết Lập & Chia Đội Trận Đấu</h2>
+            
+            <div class="admin-only" style="margin-bottom: 15px; background: #263238; padding: 10px; border-radius: 8px;">
+                <b>📲 Dán danh sách điểm danh Zalo:</b>
+                <textarea id="zaloText" placeholder="Dán văn bản Zalo vào đây..."></textarea>
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                    <button style="flex: 1;" onclick="parseZaloList()">Tích Chọn Tự Động From Zalo</button>
+                    <button class="btn-blue" style="flex: 1;" onclick="clearSelection()">Bỏ Chọn Tất Cả</button>
+                </div>
+            </div>
+
+            <div style="background: #252525; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                <div class="form-group" style="justify-content: space-between;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label><b>Tên Đội 1:</b></label>
+                        <input type="text" id="nameTeam1" value="Đội 1" onchange="renderTeamsUI()" placeholder="Tên Đội 1...">
+                        <label>Màu áo:</label>
+                        <select id="colorTeam1" onchange="renderTeamsUI()">
+                            <option value="cam" selected>Cam</option>
+                            <option value="trang">Trắng</option>
+                            <option value="xanh">Xanh</option>
+                            <option value="tim">Tím</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <label><b>Tên Đội 2:</b></label>
+                        <input type="text" id="nameTeam2" value="Đội 2" onchange="renderTeamsUI()" placeholder="Tên Đội 2...">
+                        <label>Màu áo:</label>
+                        <select id="colorTeam2" onchange="renderTeamsUI()">
+                            <option value="cam">Cam</option>
+                            <option value="trang" selected>Trắng</option>
+                            <option value="xanh">Xanh</option>
+                            <option value="tim">Tím</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-only" style="text-align: center; margin: 10px 0;">
+                <button class="btn-blue" onclick="autoAssignTeams('random')">🎲 Tự Động Chia Ngẫu Nhiên</button>
+                <button onclick="autoAssignTeams('balanced')">⚖️ Tự Động Chia Cân Bằng (Skill)</button>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Đá Trận Này</th>
+                            <th>Tên Cầu Thủ</th>
+                            <th>Vị Trí</th>
+                            <th>Skill</th>
+                            <th>Phân Đội (Admin)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matchChecklistTable"></tbody>
+                </table>
+            </div>
+
+            <div class="team-box">
+                <div class="team team-cam" id="boxTeam1">
+                    <h3 id="headTeam1">ĐỘI 1 <span id="score1"></span></h3>
+                    <ul id="listTeam1"></ul>
+                </div>
+                <div class="team team-trang" id="boxTeam2">
+                    <h3 id="headTeam2">ĐỘI 2 <span id="score2"></span></h3>
+                    <ul id="listTeam2"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>2. Kết Quả & Diễn Biến Trận Đấu</h2>
+            
+            <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px 0;">
+                <div style="text-align: center;">
+                    <b id="lblScoreTeam1" style="font-size: 16px;">ĐỘI 1</b><br>
+                    <input type="number" id="scoreInput1" class="score-input" value="0" min="0">
+                </div>
+                <span style="font-size: 24px; font-weight: bold;">-</span>
+                <div style="text-align: center;">
+                    <b id="lblScoreTeam2" style="font-size: 16px;">ĐỘI 2</b><br>
+                    <input type="number" id="scoreInput2" class="score-input" value="0" min="0">
+                </div>
+            </div>
+
+            <div class="admin-only" style="background: #252525; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                <h4>⚽ Thêm Cầu Thủ Ghi Bàn / Kiến Tạo</h4>
+                <div class="form-group">
+                    <select id="goalScorerSelect" style="flex:2;"></select>
+                    <select id="goalAssistSelect" style="flex:2;"></select>
+                    <button class="btn-orange" onclick="addMatchGoal()">+ Thêm Bàn Thắng</button>
+                </div>
+            </div>
+
+            <div class="events-list">
+                <h4 style="margin:0 0 8px 0; color:var(--accent-green);">📋 Danh Sách Bàn Thắng Trận Này:</h4>
+                <div id="matchGoalsList">Chưa có bàn thắng nào.</div>
+            </div>
+
+            <div class="admin-only" style="text-align: center; margin-top: 20px;">
+                <button style="font-size: 16px; padding: 12px 24px;" onclick="saveMatchResult()">🏆 CHỐT KẾT QUẢ TRẬN ĐẤU & CẬP NHẬT THỐNG KÊ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-players" class="tab-content">
+        <div class="card">
+            <h2>3. Danh Sách Cầu Thủ FC Bosavu</h2>
+            <div class="form-group admin-only">
+                <input type="text" id="pName" placeholder="Tên cầu thủ...">
+                <select id="pPos">
+                    <option value="GK">GK (Thủ môn)</option>
+                    <option value="DF">DF (Hậu vệ)</option>
+                    <option value="MF" selected>MF (Tiền vệ)</option>
+                    <option value="FW">FW (Tiền đạo)</option>
+                </select>
+                <select id="pSkill">
+                    <option value="5">Skill 5⭐</option>
+                    <option value="4">Skill 4⭐</option>
+                    <option value="3" selected>Skill 3⭐</option>
+                    <option value="2">Skill 2⭐</option>
+                    <option value="1">Skill 1⭐</option>
+                </select>
+                <button onclick="addPlayer()">+ Thêm Cầu Thủ</button>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tên Cầu Thủ</th>
+                            <th>Vị Trí</th>
+                            <th>Skill</th>
+                            <th>Bàn Thắng (G)</th>
+                            <th>Kiến Tạo (A)</th>
+                            <th class="admin-only">Xóa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="playerManagerTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-stats" class="tab-content">
+        <div class="card">
+            <h2>4. Thống Kê & Bảng Xếp Hạng</h2>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 12px;">
+                <label style="line-height: 35px;"><b>Lọc Thời Gian:</b></label>
+                <select id="timeFilter" onchange="renderStatsTable()">
+                    <option value="all">Tất cả thời gian</option>
+                    <option value="week">Tuần này</option>
+                    <option value="month" selected>Tháng này</option>
+                    <option value="year">Năm này</option>
+                </select>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Hạng</th>
+                            <th>Tên</th>
+                            <th>Trận Đá</th>
+                            <th>Thắng</th>
+                            <th>Tỷ Lệ Thắng</th>
+                            <th>⚽ Bàn Thắng (G)</th>
+                            <th>👟 Kiến Tạo (A)</th>
+                            <th>⭐ Sao</th>
+                        </tr>
+                    </thead>
+                    <tbody id="statsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-fund" class="tab-content">
+        <div class="fund-summary">
+            <div class="fund-card" style="border-color: var(--accent-blue);">
+                <h4 style="color: var(--accent-blue);">🟦 QUỸ ĐỘI (Cố Định & Chi Tiền Sân)</h4>
+                <div class="fund-val" id="valTeamFund" style="color: var(--accent-blue);">0 VNĐ</div>
+            </div>
+            <div class="fund-card" style="border-color: var(--accent-orange);">
+                <h4 style="color: var(--accent-orange);">🟧 QUỸ VĂN HÓA (Phạt & Ăn Nhậu)</h4>
+                <div class="fund-val" id="valCultureFund" style="color: var(--accent-orange);">0 VNĐ</div>
+            </div>
+        </div>
+
+        <div class="card admin-only">
+            <h3>📥 Quản Lý Thu Quỹ Đội Cố Định Theo Tháng</h3>
+            <div class="form-group" style="background: #2a2a2a; padding: 10px; border-radius: 6px;">
+                <label><b>Tháng thu quỹ:</b></label>
+                <input type="month" id="fundMonthSelect" onchange="renderFundTab()">
+                <label><b>Số tiền/thành viên:</b></label>
+                <input type="number" id="monthlyAmountInput" value="100000" style="max-width: 130px;">
+            </div>
+            <div class="form-group">
+                <button class="btn-purple" onclick="payMonthlyAll()">✅ TẤT CẢ THÀNH VIÊN ĐÃ ĐÓNG</button>
+            </div>
+            <hr style="border-color: var(--border); margin: 10px 0;">
+            <div class="form-group">
+                <label>Thu lẻ từng người:</label>
+                <select id="monthlyPlayerSelect"></select>
+                <button onclick="payMonthlySingle()">+ Đóng Cho Cầu Thủ Này</button>
+            </div>
+        </div>
+
+        <div class="card admin-only">
+            <h3>💸 Nhập Khoản Chi Quỹ</h3>
+            <div class="form-group">
+                <select id="expenseSource">
+                    <option value="team">Quỹ Đội</option>
+                    <option value="culture">Quỹ Văn Hóa</option>
+                </select>
+                <input type="text" id="expenseReason" placeholder="Lý do chi (Tiền sân, mua bóng...)...">
+                <input type="number" id="expenseAmount" placeholder="Số tiền (VNĐ)...">
+                <button class="btn-danger" onclick="addExpense()">- Ghi Nhận Chi</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📌 Trạng Thái Đóng Quỹ Tháng <span id="lblFundMonth"></span></h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tên Cầu Thủ</th>
+                            <th>Mức Thu</th>
+                            <th>Trạng Thái</th>
+                            <th class="admin-only">Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlyStatusTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📋 Theo Dõi Phạt Kỷ Luật (Ghi Rõ Ngày)</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tên Cầu Thủ</th>
+                            <th>Đi Muộn (50k)</th>
+                            <th>Bỏ Trận (100k)</th>
+                            <th>Tổng Tiền Phạt</th>
+                            <th class="admin-only">Thao Tác Phạt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="penaltyTable"></tbody>
+                </table>
+            </div>
+
+            <h3 style="margin-top: 25px;">🧾 Biến Động Quỹ Chi Tiết</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Thời Gian</th>
+                            <th>Loại Quỹ</th>
+                            <th>Nội Dung</th>
+                            <th>Biến Động Số Tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fundHistoryTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- CẤU HÌNH FIREBASE CHUẨN CỦA ĐỘI FC BOSAVU ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyCxtM5VyHpv5pM_oEMnKAOZ7LJC1T9tYto",
+        authDomain: "fc-bosavu.firebaseapp.com",
+        databaseURL: "https://fc-bosavu-default-rtdb.firebaseio.com",
+        projectId: "fc-bosavu",
+        storageBucket: "fc-bosavu.firebasestorage.app",
+        messagingSenderId: "559523917334",
+        appId: "1:559523917334:web:cc5195366a70d0d66a4f37",
+        measurementId: "G-VLQKNKJBSC"
+    };
+
+    // Khởi tạo Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let isAdmin = false;
+    const ADMIN_PASS = "1234";
+
+    let players = [];
+    let starHistory = [];
+    let fundHistory = [];
+    let penalties = [];
+    
+    let matchAssignments = {}; 
+    let currentMatchGoals = []; 
+
+    const colorMap = {
+        cam: { class: 'team-cam', icon: '🟠' },
+        trang: { class: 'team-trang', icon: '⚪' },
+        xanh: { class: 'team-xanh', icon: '🔵' },
+        tim: { class: 'team-tim', icon: '🟣' }
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const now = new Date();
+        const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        document.getElementById('fundMonthSelect').value = monthStr;
+
+        // LẮNG NGHE DỮ LIỆU TỪ FIREBASE REALTIME
+        db.ref('fc_bosavu_data').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                players = data.players || [];
+                starHistory = data.starHistory || [];
+                fundHistory = data.fundHistory || [];
+                penalties = data.penalties || [];
+            }
+            refreshActiveTab();
+        });
+    });
+
+    function saveData() {
+        // LƯU TRỰC TIẾP LÊN ĐÁM MÂY GOOGLE
+        db.ref('fc_bosavu_data').set({
+            players: players,
+            starHistory: starHistory,
+            fundHistory: fundHistory,
+            penalties: penalties
+        });
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+        refreshActiveTab();
+    }
+
+    function refreshActiveTab() {
+        const activeTab = document.querySelector('.tab-content.active').id;
+        if(activeTab === 'tab-match') renderMatchChecklist();
+        if(activeTab === 'tab-players') renderPlayerManager();
+        if(activeTab === 'tab-stats') renderStatsTable();
+        if(activeTab === 'tab-fund') renderFundTab();
+    }
+
+    function toggleAuth() {
+        if (!isAdmin) {
+            let pass = prompt("Nhập mật khẩu Admin (Mặc định: 1234):");
+            if (pass === ADMIN_PASS) {
+                isAdmin = true;
+                document.getElementById('roleLabel').innerText = "ADMIN (Toàn quyền)";
+                document.getElementById('roleLabel').style.color = "var(--accent-orange)";
+                document.getElementById('authBtn').innerText = "🚪 Đăng Xuất";
+            } else if(pass !== null) alert("Sai mật khẩu!");
+        } else {
+            isAdmin = false;
+            document.getElementById('roleLabel').innerText = "MEMBER (Chỉ xem)";
+            document.getElementById('roleLabel').style.color = "var(--accent-green)";
+            document.getElementById('authBtn').innerText = "🔑 Đăng Nhập Admin";
+        }
+        updateUIRole();
+    }
+
+    function updateUIRole() {
+        document.querySelectorAll('.admin-only').forEach(el => {
+            el.style.display = isAdmin ? 'block' : 'none';
+        });
+        refreshActiveTab();
+    }
+
+    // --- CÁC HÀM XỬ LÝ TRẬN ĐẤU & QUẢN LÝ ---
+    function renderMatchChecklist() {
+        const tbody = document.getElementById('matchChecklistTable');
+        tbody.innerHTML = '';
+        players.forEach(p => {
+            const assignVal = matchAssignments[p.id] || 0;
+            const isChecked = assignVal > 0;
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td>
+                        <input type="checkbox" class="p-select" value="${p.id}" ${isChecked ? 'checked' : ''} onchange="onPlayerCheckChange(${p.id}, this.checked)">
+                    </td>
+                    <td><b>${p.name}</b></td>
+                    <td><span class="tag tag-${p.pos.toLowerCase()}">${p.pos}</span></td>
+                    <td>${p.skill}⭐</td>
+                    <td>
+                        <select onchange="assignPlayerToTeam(${p.id}, this.value)" style="padding: 2px 5px; font-size:12px;">
+                            <option value="0" ${assignVal == 0 ? 'selected' : ''}>-- Chọn --</option>
+                            <option value="1" ${assignVal == 1 ? 'selected' : ''}>Đội 1</option>
+                            <option value="2" ${assignVal == 2 ? 'selected' : ''}>Đội 2</option>
+                        </select>
+                    </td>
+                </tr>
+            `;
+        });
+        renderTeamsUI();
+        updateGoalSelects();
+    }
+
+    function onPlayerCheckChange(pId, checked) {
+        matchAssignments[pId] = checked ? 1 : 0;
+        renderMatchChecklist();
+    }
+
+    function assignPlayerToTeam(pId, teamVal) {
+        matchAssignments[pId] = parseInt(teamVal);
+        renderMatchChecklist();
+    }
+
+    function autoAssignTeams(type) {
+        const selectedIds = Array.from(document.querySelectorAll('.p-select:checked')).map(cb => parseInt(cb.value));
+        if (selectedIds.length < 2) return alert('Tích chọn ít nhất 2 cầu thủ!');
+
+        let selectedList = players.filter(p => selectedIds.includes(p.id));
+
+        if (type === 'random') {
+            selectedList.sort(() => Math.random() - 0.5);
+            selectedList.forEach((p, idx) => { matchAssignments[p.id] = (idx % 2 === 0) ? 1 : 2; });
+        } else {
+            const gks = selectedList.filter(p => p.pos === 'GK');
+            const others = selectedList.filter(p => p.pos !== 'GK').sort((a,b) => b.skill - a.skill);
+            let team1Skill = 0, team2Skill = 0;
+
+            gks.forEach((gk, idx) => {
+                if (idx % 2 === 0) { matchAssignments[gk.id] = 1; team1Skill += gk.skill; }
+                else { matchAssignments[gk.id] = 2; team2Skill += gk.skill; }
+            });
+
+            others.forEach(p => {
+                if (team1Skill <= team2Skill) { matchAssignments[p.id] = 1; team1Skill += p.skill; }
+                else { matchAssignments[p.id] = 2; team2Skill += p.skill; }
+            });
+        }
+        renderMatchChecklist();
+    }
+
+    function renderTeamsUI() {
+        const name1 = document.getElementById('nameTeam1').value || 'Đội 1';
+        const name2 = document.getElementById('nameTeam2').value || 'Đội 2';
+        const color1 = document.getElementById('colorTeam1').value;
+        const color2 = document.getElementById('colorTeam2').value;
+
+        document.getElementById('boxTeam1').className = `team ${colorMap[color1].class}`;
+        document.getElementById('boxTeam2').className = `team ${colorMap[color2].class}`;
+
+        document.getElementById('headTeam1').innerHTML = `${colorMap[color1].icon} ${name1.toUpperCase()} <span id="score1"></span>`;
+        document.getElementById('headTeam2').innerHTML = `${colorMap[color2].icon} ${name2.toUpperCase()} <span id="score2"></span>`;
+
+        document.getElementById('lblScoreTeam1').innerText = name1.toUpperCase();
+        document.getElementById('lblScoreTeam2').innerText = name2.toUpperCase();
+
+        const team1List = players.filter(p => matchAssignments[p.id] === 1);
+        const team2List = players.filter(p => matchAssignments[p.id] === 2);
+
+        document.getElementById('listTeam1').innerHTML = team1List.map(p => `<li><b>${p.name}</b> - <span class="tag tag-${p.pos.toLowerCase()}">${p.pos}</span> (${p.skill}⭐)</li>`).join('');
+        document.getElementById('listTeam2').innerHTML = team2List.map(p => `<li><b>${p.name}</b> - <span class="tag tag-${p.pos.toLowerCase()}">${p.pos}</span> (${p.skill}⭐)</li>`).join('');
+
+        document.getElementById('score1').innerText = `(${team1List.reduce((s, i) => s + i.skill, 0)}⭐)`;
+        document.getElementById('score2').innerText = `(${team2List.reduce((s, i) => s + i.skill, 0)}⭐)`;
+    }
+
+    function parseZaloList() {
+        const text = document.getElementById('zaloText').value;
+        if (!text.trim()) return alert("Dán danh sách Zalo vào ô trước!");
+        let foundCount = 0;
+        players.forEach(p => {
+            if (text.toLowerCase().includes(p.name.toLowerCase())) {
+                matchAssignments[p.id] = 1;
+                foundCount++;
+            }
+        });
+        renderMatchChecklist();
+        alert(`Đã chọn ${foundCount} cầu thủ từ Zalo!`);
+    }
+
+    function clearSelection() {
+        matchAssignments = {};
+        currentMatchGoals = [];
+        renderMatchChecklist();
+        renderGoalsList();
+    }
+
+    function updateGoalSelects() {
+        const activeMatchPlayers = players.filter(p => matchAssignments[p.id] === 1 || matchAssignments[p.id] === 2);
+        const scorerSelect = document.getElementById('goalScorerSelect');
+        const assistSelect = document.getElementById('goalAssistSelect');
+
+        let optionsScorer = `<option value="">-- Chọn Cầu Thủ Ghi Bàn --</option>`;
+        let optionsAssist = `<option value="">-- Không Có Kiến Tạo --</option>`;
+
+        activeMatchPlayers.forEach(p => {
+            const teamName = matchAssignments[p.id] === 1 ? document.getElementById('nameTeam1').value : document.getElementById('nameTeam2').value;
+            optionsScorer += `<option value="${p.id}">${p.name} (${teamName})</option>`;
+            optionsAssist += `<option value="${p.id}">${p.name} (${teamName})</option>`;
+        });
+
+        scorerSelect.innerHTML = optionsScorer;
+        assistSelect.innerHTML = optionsAssist;
+    }
+
+    function addMatchGoal() {
+        const scorerId = parseInt(document.getElementById('goalScorerSelect').value);
+        const assistId = parseInt(document.getElementById('goalAssistSelect').value) || null;
+
+        if (!scorerId) return alert('Vui lòng chọn cầu thủ ghi bàn!');
+        if (scorerId === assistId) return alert('Cầu thủ ghi bàn và kiến tạo không thể trùng nhau!');
+
+        currentMatchGoals.push({ scorerId, assistId });
+        renderGoalsList();
+    }
+
+    function renderGoalsList() {
+        const container = document.getElementById('matchGoalsList');
+        if (currentMatchGoals.length === 0) {
+            container.innerHTML = "<i>Chưa ghi nhận bàn thắng nào.</i>";
+            return;
+        }
+
+        let html = "<ol style='margin:0; padding-left:20px;'>";
+        currentMatchGoals.forEach((g, idx) => {
+            const scorer = players.find(p => p.id === g.scorerId);
+            const assist = players.find(p => p.id === g.assistId);
+            html += `<li style="margin-bottom: 5px;">
+                ⚽ <b>${scorer ? scorer.name : 'N/A'}</b>
+                ${assist ? ` (👟 Kiến tạo: <b>${assist.name}</b>)` : ''}
+                <button class="btn-danger btn-sm admin-only" style="margin-left:8px;" onclick="removeGoal(${idx})">Xóa</button>
+            </li>`;
+        });
+        html += "</ol>";
+        container.innerHTML = html;
+        updateUIRole();
+    }
+
+    function removeGoal(index) {
+        currentMatchGoals.splice(index, 1);
+        renderGoalsList();
+    }
+
+    function saveMatchResult() {
+        const score1 = parseInt(document.getElementById('scoreInput1').value) || 0;
+        const score2 = parseInt(document.getElementById('scoreInput2').value) || 0;
+
+        const team1List = players.filter(p => matchAssignments[p.id] === 1);
+        const team2List = players.filter(p => matchAssignments[p.id] === 2);
+
+        if (team1List.length === 0 || team2List.length === 0) {
+            return alert('Cần phân chia ít nhất 1 cầu thủ vào mỗi đội!');
+        }
+
+        if (confirm(`Xác nhận chốt kết quả và đồng bộ dữ liệu trực tuyến?`)) {
+            const now = new Date().toISOString();
+
+            team1List.forEach(p => {
+                p.matches = (p.matches || 0) + 1;
+                if (score1 > score2) {
+                    p.wins = (p.wins || 0) + 1;
+                    starHistory.push({ playerId: p.id, date: now });
+                }
+            });
+
+            team2List.forEach(p => {
+                p.matches = (p.matches || 0) + 1;
+                if (score2 > score1) {
+                    p.wins = (p.wins || 0) + 1;
+                    starHistory.push({ playerId: p.id, date: now });
+                }
+            });
+
+            currentMatchGoals.forEach(g => {
+                const scorer = players.find(p => p.id === g.scorerId);
+                if (scorer) scorer.goals = (scorer.goals || 0) + 1;
+
+                if (g.assistId) {
+                    const assist = players.find(p => p.id === g.assistId);
+                    if (assist) assist.assists = (assist.assists || 0) + 1;
+                }
+            });
+
+            saveData();
+            alert('Đã cập nhật dữ liệu thành công!');
+            currentMatchGoals = [];
+            renderGoalsList();
+        }
+    }
+
+    function renderPlayerManager() {
+        const tbody = document.getElementById('playerManagerTable');
+        tbody.innerHTML = '';
+        players.forEach(p => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${p.name}</b></td>
+                    <td><span class="tag tag-${p.pos.toLowerCase()}">${p.pos}</span></td>
+                    <td>${p.skill}⭐</td>
+                    <td>⚽ <b>${p.goals || 0}</b></td>
+                    <td>👟 <b>${p.assists || 0}</b></td>
+                    <td class="admin-only"><button class="btn-danger btn-sm" onclick="deletePlayer(${p.id})">Xóa</button></td>
+                </tr>
+            `;
+        });
+    }
+
+    function addPlayer() {
+        const name = document.getElementById('pName').value.trim();
+        const pos = document.getElementById('pPos').value;
+        const skill = parseInt(document.getElementById('pSkill').value);
+        if (!name) return alert('Nhập tên!');
+        players.push({ id: Date.now(), name, pos, skill, matches: 0, wins: 0, goals: 0, assists: 0 });
+        document.getElementById('pName').value = '';
+        saveData();
+    }
+
+    function deletePlayer(id) {
+        if (confirm('Xóa cầu thủ này?')) {
+            players = players.filter(p => p.id !== id);
+            starHistory = starHistory.filter(h => h.playerId !== id);
+            saveData();
+        }
+    }
+
+    function getStarsCount(playerId, timeFrame) {
+        const now = new Date();
+        return starHistory.filter(h => {
+            if (h.playerId !== playerId) return false;
+            const hDate = new Date(h.date);
+            if (timeFrame === 'week') {
+                const firstDayOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+                return hDate >= firstDayOfWeek;
+            } else if (timeFrame === 'month') {
+                return hDate.getMonth() === new Date().getMonth() && hDate.getFullYear() === new Date().getFullYear();
+            } else if (timeFrame === 'year') {
+                return hDate.getFullYear() === new Date().getFullYear();
+            }
+            return true;
+        }).length;
+    }
+
+    function renderStatsTable() {
+        const tbody = document.getElementById('statsTable');
+        const filter = document.getElementById('timeFilter').value;
+        tbody.innerHTML = '';
+
+        let list = players.map(p => {
+            const stars = getStarsCount(p.id, filter);
+            const winRate = p.matches > 0 ? Math.round((p.wins / p.matches) * 100) : 0;
+            return { ...p, stars, winRate };
+        });
+
+        list.sort((a,b) => b.stars - a.stars || b.goals - a.goals || b.winRate - a.winRate);
+
+        list.forEach((p, idx) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>#${idx + 1}</b></td>
+                    <td><b>${p.name}</b></td>
+                    <td>${p.matches || 0}</td>
+                    <td>${p.wins || 0}</td>
+                    <td style="color: var(--accent-orange); font-weight: bold;">${p.winRate}%</td>
+                    <td>⚽ ${p.goals || 0}</td>
+                    <td>👟 ${p.assists || 0}</td>
+                    <td style="color: var(--accent-orange); font-weight: bold;">${p.stars} ⭐</td>
+                </tr>
+            `;
+        });
+    }
+
+    function payMonthlyAll() {
+        const monthVal = document.getElementById('fundMonthSelect').value;
+        const amount = parseInt(document.getElementById('monthlyAmountInput').value) || 0;
+
+        if (!monthVal || amount <= 0) return alert('Thông tin thu quỹ không hợp lệ!');
+
+        if (confirm(`Xác nhận tất cả thành viên đã đóng quỹ tháng ${monthVal}?`)) {
+            const dateStr = new Date().toLocaleDateString('vi-VN');
+            players.forEach(p => {
+                const isPaid = fundHistory.some(h => h.month === monthVal && h.playerId === p.id && h.type === 'team');
+                if (!isPaid) {
+                    fundHistory.push({
+                        type: 'team', playerId: p.id, month: monthVal, amount: amount,
+                        reason: `${p.name} đóng quỹ đội tháng ${monthVal}`, date: dateStr
+                    });
+                }
+            });
+            saveData();
+            alert('Đã đồng bộ dữ liệu thành công!');
+        }
+    }
+
+    function payMonthlySingle() {
+        const monthVal = document.getElementById('fundMonthSelect').value;
+        const pId = parseInt(document.getElementById('monthlyPlayerSelect').value);
+        const amount = parseInt(document.getElementById('monthlyAmountInput').value) || 0;
+
+        const p = players.find(item => item.id === pId);
+        if (!p || !monthVal || amount <= 0) return alert('Thông tin không hợp lệ!');
+
+        const isPaid = fundHistory.some(h => h.month === monthVal && h.playerId === pId && h.type === 'team');
+        if (isPaid) return alert(`${p.name} đã đóng quỹ tháng ${monthVal} rồi!`);
+
+        const dateStr = new Date().toLocaleDateString('vi-VN');
+        fundHistory.push({
+            type: 'team', playerId: pId, month: monthVal, amount: amount,
+            reason: `${p.name} đóng quỹ đội tháng ${monthVal}`, date: dateStr
+        });
+
+        saveData();
+    }
+
+    function addPenalty(playerId, type) {
+        const p = players.find(item => item.id === playerId);
+        if (!p) return;
+
+        const amount = type === 'late' ? 50000 : 100000;
+        const reason = type === 'late' ? `Phạt đi muộn (${p.name})` : `Phạt bỏ trận (${p.name})`;
+        const dateStr = new Date().toLocaleDateString('vi-VN');
+
+        penalties.push({ playerId, type, amount, date: dateStr });
+        fundHistory.push({ type: 'culture', playerId, amount, reason: `${reason} - ngày ${dateStr}`, date: dateStr });
+
+        saveData();
+    }
+
+    function addExpense() {
+        const source = document.getElementById('expenseSource').value;
+        const reason = document.getElementById('expenseReason').value.trim();
+        const amount = parseInt(document.getElementById('expenseAmount').value);
+
+        if (!reason || !amount) return alert('Nhập đầy đủ thông tin chi!');
+
+        const dateStr = new Date().toLocaleDateString('vi-VN');
+        fundHistory.push({ type: source, amount: -amount, reason: `Chi: ${reason}`, date: dateStr });
+
+        document.getElementById('expenseReason').value = '';
+        document.getElementById('expenseAmount').value = '';
+        saveData();
+    }
+
+    function renderFundTab() {
+        const selectedMonth = document.getElementById('fundMonthSelect').value;
+        const monthlyAmount = parseInt(document.getElementById('monthlyAmountInput').value) || 0;
+
+        document.getElementById('lblFundMonth').innerText = selectedMonth;
+        document.getElementById('monthlyPlayerSelect').innerHTML = players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+        let teamFund = 0;
+        let cultureFund = 0;
+        fundHistory.forEach(h => {
+            if (h.type === 'team') teamFund += h.amount;
+            if (h.type === 'culture') cultureFund += h.amount;
+        });
+
+        document.getElementById('valTeamFund').innerText = `${teamFund.toLocaleString('vi-VN')} VNĐ`;
+        document.getElementById('valCultureFund').innerText = `${cultureFund.toLocaleString('vi-VN')} VNĐ`;
+
+        const statusTbody = document.getElementById('monthlyStatusTable');
+        statusTbody.innerHTML = '';
+        players.forEach(p => {
+            const paidRecord = fundHistory.find(h => h.month === selectedMonth && h.playerId === p.id && h.type === 'team');
+            const isPaid = !!paidRecord;
+
+            statusTbody.innerHTML += `
+                <tr>
+                    <td><b>${p.name}</b></td>
+                    <td>${(isPaid ? paidRecord.amount : monthlyAmount).toLocaleString('vi-VN')} VNĐ</td>
+                    <td>${isPaid ? '<span class="badge-paid">ĐÃ ĐÓNG</span>' : '<span class="badge-unpaid">CHƯA ĐÓNG</span>'}</td>
+                    <td class="admin-only">
+                        ${!isPaid ? `<button class="btn-sm" onclick="paySinglePlayerMonth(${p.id})">Đánh Dấu ĐÃ Đóng</button>` : '✅ Ok'}
+                    </td>
+                </tr>
+            `;
+        });
+
+        const penaltyTbody = document.getElementById('penaltyTable');
+        penaltyTbody.innerHTML = '';
+        players.forEach(p => {
+            const pList = penalties.filter(item => item.playerId === p.id);
+            const lateCount = pList.filter(item => item.type === 'late').length;
+            const skipCount = pList.filter(item => item.type === 'skip').length;
+            const totalFine = (lateCount * 50000) + (skipCount * 100000);
+
+            penaltyTbody.innerHTML += `
+                <tr>
+                    <td><b>${p.name}</b></td>
+                    <td>${lateCount} lần</td>
+                    <td>${skipCount} lần</td>
+                    <td style="color: var(--danger); font-weight: bold;">${totalFine.toLocaleString('vi-VN')} VNĐ</td>
+                    <td class="admin-only">
+                        <button class="btn-sm btn-orange" onclick="addPenalty(${p.id}, 'late')">+ Phạt Muộn</button>
+                        <button class="btn-sm btn-danger" onclick="addPenalty(${p.id}, 'skip')">+ Phạt Bỏ</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        const historyTbody = document.getElementById('fundHistoryTable');
+        historyTbody.innerHTML = '';
+        [...fundHistory].reverse().forEach(h => {
+            const isPlus = h.amount > 0;
+            const color = isPlus ? 'var(--accent-green)' : 'var(--danger)';
+            historyTbody.innerHTML += `
+                <tr>
+                    <td>${h.date}</td>
+                    <td><b>${h.type === 'team' ? '🟦 Quỹ Đội' : '🟧 Quỹ Văn Hóa'}</b></td>
+                    <td>${h.reason}</td>
+                    <td style="color: ${color}; font-weight: bold;">${isPlus ? '+' : ''}${h.amount.toLocaleString('vi-VN')} VNĐ</td>
+                </tr>
+            `;
+        });
+    }
+
+    function paySinglePlayerMonth(pId) {
+        document.getElementById('monthlyPlayerSelect').value = pId;
+        payMonthlySingle();
+    }
+</script>
+</body>
+</html>
